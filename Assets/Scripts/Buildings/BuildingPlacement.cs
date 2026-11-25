@@ -11,18 +11,18 @@ public class BuildingPlacement : MonoBehaviour
     public static BuildingPlacement Instance;
     private InputSystem_Actions inputActions;
 
-    [SerializeField] private GameObject buildMenu, balistaPrefab, cannonPrefab, catapultPrefab, turretPrefab;
-    [SerializeField] private Image balistaPreview, cannonPreview, catapultPreview, turretPreview;
-    [SerializeField] private TextMeshProUGUI balistaPriceText, cannonPriceText, catapultPriceText, turretPriceText;
-    [SerializeField] private float priceIncreaseRate = 1.4f;
+    [SerializeField] private GameObject buildMenu, balistaPrefab, cannonPrefab, catapultPrefab, turretPrefab, wallPrefab;
+    [SerializeField] private Image balistaPreview, cannonPreview, catapultPreview, turretPreview, wallPreview;
+    [SerializeField] private TextMeshProUGUI balistaPriceText, cannonPriceText, catapultPriceText, turretPriceText, wallPriceText;
+    [SerializeField] private float priceIncrease = 0.25f;
 
     private bool canPlace => buildingGhost != null && TileSelection.Instance.currentTile != null
             && ((GridTile)TileSelection.Instance.currentTile).isWalkable;
     private GameObject buildingGhost;
     private float buildingGhostAlpha = 0.5f;
-    private int balistaPrice, cannonPrice, catapultPrice, turretPrice;
+    private int balistaPrice, cannonPrice, catapultPrice, turretPrice, wallPrice;
     public bool inMenu { get; private set; }
-    private List<Building> buildings;
+    public List<Building> buildings { get; private set; }
 
     void Awake()
     {
@@ -58,7 +58,6 @@ public class BuildingPlacement : MonoBehaviour
             return;
         }
 
-        SFXManager.Instance.PlayPlaceSound();
         Vector3 pos = buildingGhost.transform.position;
         GameObject building = null;
         int price = 0;
@@ -80,29 +79,57 @@ public class BuildingPlacement : MonoBehaviour
                 building = turretPrefab;
                 price = turretPrice;
                 break;
+            case BuildingType.Wall:
+                building = wallPrefab;
+                price = wallPrice;
+                break;
         }
 
-        GridManager.Instance.PlaceOnTile(Instantiate(building, pos, Quaternion.identity));
-        GameState.Instance.RemoveCrystals(price);
+        if (building == null || price < 0 || price > GameState.Instance.crystals)
+        {
+            SFXManager.Instance.PlayErrorSound();
+            return;
+        }
+
+        GameObject placedObject = Instantiate(building, pos, Quaternion.identity);
+        if (!placedObject.TryGetComponent(out Building placedBuilding))
+        {
+            Destroy(placedObject);
+            throw new InvalidOperationException($"Building prefab '{building.name}' has no Building component.");
+        }
+
+        if (!GameState.Instance.RemoveCrystals(price))
+        {
+            Destroy(placedObject);
+            SFXManager.Instance.PlayErrorSound();
+            return;
+        }
+
+        buildings.Add(placedBuilding);
+        GridManager.Instance.PlaceOnTile(placedObject);
+        SFXManager.Instance.PlayPlaceSound();
 
         UpdateBuildMenu();
     }
 
     private void UpdateBuildMenu()
     {
-        balistaPrice = (int)(balistaPrefab.GetComponent<Building>().GetPrice() *
-                Math.Pow(priceIncreaseRate, CountBuildings(BuildingType.Balista)));
-        cannonPrice = (int)(cannonPrefab.GetComponent<Building>().GetPrice() *
-                Math.Pow(priceIncreaseRate, CountBuildings(BuildingType.Cannon)));
-        catapultPrice = (int)(cannonPrefab.GetComponent<Building>().GetPrice() *
-                Math.Pow(priceIncreaseRate, CountBuildings(BuildingType.Catapult)));
-        turretPrice = (int)(turretPrefab.GetComponent<Building>().GetPrice() *
-                Math.Pow(priceIncreaseRate, CountBuildings(BuildingType.Turret)));
+        balistaPrice = (int) (balistaPrefab.GetComponent<Building>().GetPrice() + 
+                (priceIncrease * balistaPrefab.GetComponent<Building>().GetPrice() * CountBuildings(BuildingType.Balista)));
+        cannonPrice = (int)(cannonPrefab.GetComponent<Building>().GetPrice() + 
+                (priceIncrease * cannonPrefab.GetComponent<Building>().GetPrice() * CountBuildings(BuildingType.Cannon)));
+        catapultPrice = (int)(catapultPrefab.GetComponent<Building>().GetPrice() + 
+                (priceIncrease * catapultPrefab.GetComponent<Building>().GetPrice() * CountBuildings(BuildingType.Catapult)));
+        turretPrice = (int)(turretPrefab.GetComponent<Building>().GetPrice() + 
+                (priceIncrease * turretPrefab.GetComponent<Building>().GetPrice() * CountBuildings(BuildingType.Turret)));
+        wallPrice = (int)(wallPrefab.GetComponent<Building>().GetPrice() + 
+                (priceIncrease * wallPrefab.GetComponent<Building>().GetPrice() * CountBuildings(BuildingType.Wall)));
 
         balistaPriceText.text = balistaPrice + " C";
         cannonPriceText.text = cannonPrice + " C";
         catapultPriceText.text = catapultPrice + " C";
         turretPriceText.text = turretPrice + " C";
+        wallPriceText.text = wallPrice + " C";
 
         if (balistaPrice > GameState.Instance.crystals) balistaPreview.color = Color.red;
         else balistaPreview.color = Color.white;
@@ -115,6 +142,9 @@ public class BuildingPlacement : MonoBehaviour
 
         if (turretPrice > GameState.Instance.crystals) turretPreview.color = Color.red;
         else turretPreview.color = Color.white;
+
+        if (wallPrice > GameState.Instance.crystals) wallPreview.color = Color.red;
+        else wallPreview.color = Color.white;
     }
 
     private int CountBuildings(BuildingType type)
@@ -132,6 +162,7 @@ public class BuildingPlacement : MonoBehaviour
         if (balistaPrice > GameState.Instance.crystals)
         {
             Destroy(buildingGhost);
+            SFXManager.Instance.PlayErrorSound();
             return;
         }
 
@@ -146,6 +177,7 @@ public class BuildingPlacement : MonoBehaviour
         if (cannonPrice > GameState.Instance.crystals)
         {
             Destroy(buildingGhost);
+            SFXManager.Instance.PlayErrorSound();
             return;
         }
 
@@ -160,6 +192,7 @@ public class BuildingPlacement : MonoBehaviour
         if (catapultPrice > GameState.Instance.crystals)
         {
             Destroy(buildingGhost);
+            SFXManager.Instance.PlayErrorSound();
             return;
         }
 
@@ -174,6 +207,7 @@ public class BuildingPlacement : MonoBehaviour
         if (turretPrice > GameState.Instance.crystals)
         {
             Destroy(buildingGhost);
+            SFXManager.Instance.PlayErrorSound();
             return;
         }
 
@@ -185,8 +219,22 @@ public class BuildingPlacement : MonoBehaviour
 
     public void OnWall()
     {
+        if (wallPrice > GameState.Instance.crystals)
+        {
+            Destroy(buildingGhost);
+            SFXManager.Instance.PlayErrorSound();
+            return;
+        }
 
+        if (buildingGhost != null)
+            Destroy(buildingGhost);
+
+        InitializeBuildingGhost(wallPrefab);
     }
+
+    public void RepairBuildings() { foreach (Building building in buildings) building.Repair(); }
+
+    public void RemoveBuilding(Building building) { buildings.Remove(building); }
 
     private void InitializeBuildingGhost(GameObject building)
     {

@@ -36,7 +36,7 @@ public class TileSelection : MonoBehaviour
 
     void Update()
     {
-        if (isInMenu)
+        if (isInMenu || GameState.Instance.inCombat)
             return;
 
         if (EventSystem.current.IsPointerOverGameObject())
@@ -73,6 +73,9 @@ public class TileSelection : MonoBehaviour
         if (currentTile.isWalkable == true)
             return;
 
+        if (currentTile.building is Wall)
+            return;
+
         if (currentTile.building != null)
         {
             SFXManager.Instance.PlayConfirmSound();
@@ -93,5 +96,10 @@ public class TileSelection : MonoBehaviour
     public void ExitMenu()
     {
         isInMenu = false;
+    }
+
+    void OnDestroy()
+    {
+        inputActions.Player.Select.performed -= ctx => OnClick();
     }
 }

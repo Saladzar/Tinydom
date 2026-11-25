@@ -69,6 +69,15 @@ public class GridManager : MonoBehaviour
         return new Vector2Int(x, z);
     }
 
+    public Vector2Int ClampToGridPosition(Vector3 pos)
+    {
+        int x = Mathf.RoundToInt((pos.x + gridApothem) / tileSize);
+        int z = Mathf.RoundToInt((pos.z + gridApothem) / tileSize);
+        return new Vector2Int(
+            Mathf.Clamp(x, 0, gridSize - 1),
+            Mathf.Clamp(z, 0, gridSize - 1));
+    }
+
     public Vector3? GridToWorldPosition(Vector2Int pos)
     {
         if (IsOutOfBounds(pos))
@@ -79,15 +88,35 @@ public class GridManager : MonoBehaviour
 
     public Vector2Int FindEmpty()
     {
+        if (!TryFindEmpty(out Vector2Int position))
+            throw new InvalidOperationException("The grid has no empty tiles.");
+
+        return position;
+    }
+
+    public bool TryFindEmpty(out Vector2Int position)
+    {
+        return TryFindEmpty(null, out position);
+    }
+
+    public bool TryFindEmpty(ICollection<Vector2Int> excludedPositions, out Vector2Int position)
+    {
         List<Vector2Int> _listOfEmpty = new List<Vector2Int>();
 
         foreach (GridTile tile in grid)
         {
-            if (tile.isWalkable)
+            if (tile.isWalkable && (excludedPositions == null || !excludedPositions.Contains(tile.gridPosition)))
                 _listOfEmpty.Add(tile.gridPosition);
         }
 
-        return _listOfEmpty[UnityEngine.Random.Range(0, _listOfEmpty.Count)];
+        if (_listOfEmpty.Count == 0)
+        {
+            position = default;
+            return false;
+        }
+
+        position = _listOfEmpty[UnityEngine.Random.Range(0, _listOfEmpty.Count)];
+        return true;
     }
 
     public void PlaceOnTile(GameObject gameObject)
@@ -104,6 +133,15 @@ public class GridManager : MonoBehaviour
             grid[gPos.x, gPos.y].building = building;
         else if (gameObject.TryGetComponent(out Crystal crystal))
             grid[gPos.x, gPos.y].crystal = crystal;
+    }
+
+    public void RemoveBuildingFromTile(Building building)
+    {
+        if (building == null) return;
+
+        GridTile tile = GetTileFromWorldPosition(building.transform.position);
+        if (tile != null && tile.building == building)
+            tile.building = null;
     }
 
     private bool IsOutOfBounds(Vector2Int gPos)

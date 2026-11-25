@@ -8,12 +8,8 @@ public class Skeleton : Enemy
     void Start()
     {
         Init();
-        targetBuilding = grid.GetTile(0, 0).building;
 
-        Vector2Int gPos = (Vector2Int) grid.WorldToGridPosition(transform.position);
-        Vector2Int targetGPos = (Vector2Int) grid.WorldToGridPosition(targetBuilding.transform.position);
-
-        SetPath(Pathfinding.Instance.FindPath(gPos, targetGPos));
+        Pathfind();
     }
 
     void FixedUpdate()
@@ -30,5 +26,12 @@ public class Skeleton : Enemy
         }
 
         MoveTowards(tile.worldPosition);
+    }
+
+    public override void Pathfind()
+    {
+        targetBuilding = GameState.Instance.homeTower;
+
+        PathfindToTarget();
     }
 }

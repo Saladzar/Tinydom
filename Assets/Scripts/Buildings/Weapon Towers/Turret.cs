@@ -1,16 +1,13 @@
 using UnityEngine;
 
-public class Turret : MonoBehaviour
+public class Turret : WeaponTower
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
+        Init();
         
+        buildingType = BuildingType.Turret;
     }
 
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
+    public override string GetBuildingName() { return "TURRET"; }
 }

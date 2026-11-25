@@ -37,24 +37,45 @@ public class InterfaceManager : MonoBehaviour
 
     public void OnRemove()
     {
-        
+        if (interfaceType == InterfaceType.WeaponTower)
+        {
+            GameState.Instance.AddCrystals((int) (TileSelection.Instance.currentTile.building.GetPrice() * 0.5f));
+            TileSelection.Instance.currentTile.building.OnRemove();
+        } else if (interfaceType == InterfaceType.Crystal)
+        {
+            Crystal crystal = TileSelection.Instance.currentTile.crystal;
+            if (crystal == null)
+            {
+                ExitInterface();
+                return;
+            }
+
+            if (GameState.Instance.RemoveCrystals(crystal.destroyPrice))
+            {
+                crystal.DestroyCrystal();
+                ExitInterface();
+            }
+            else
+                SFXManager.Instance.PlayErrorSound();
+        }
     }
 
     public void OnMine()
     {
         GridTile _tempTile = (GridTile) TileSelection.Instance.currentTile;
+        Crystal crystal = _tempTile.crystal;
+        if (crystal == null || crystal.isMined) return;
 
-        if (GameState.Instance.RemoveCrystals(_tempTile.crystal.minePrice))
+        if (GameState.Instance.RemoveCrystals(crystal.minePrice))
         {
             SFXManager.Instance.PlayConfirmSound();
-            CrystalManager.Instance.MineCrystal(_tempTile.crystal);
+            CrystalManager.Instance.MineCrystal(crystal);
             ExitInterface();
         } else SFXManager.Instance.PlayErrorSound();
     }
 
     public void HandleHomeTower(Building homeTower)
     {
-        Debug.Log("Interface Open!");
         interfaceType = InterfaceType.HomeTower;
         homeTowerLevel.text = homeTower.level + "";
         homeTowerHealth.text = homeTower.GetMaxHealth() + "";
@@ -71,14 +92,14 @@ public class InterfaceManager : MonoBehaviour
         weaponTowerDamage.text = weaponTower.GetDamage() + "";
         weaponTowerRange.text = weaponTower.GetRange() + "";
         weaponTowerUpgradePrice.text = weaponTower.GetPriceForNextUpgrade() + " C";
-        //weaponTowerDestroyPrice.text = "+" + weaponTower.GetPriceToDestroy() + " C";
+        weaponTowerDestroyPrice.text = "+" + weaponTower.GetPrice() * 0.5 + " C";
         UpdateInterfaceDisplay();
     }
 
     public void HandleCrystal(Crystal crystal)
     {
         interfaceType = InterfaceType.Crystal;
-        crystalName.text = crystal.isLarge ? "LARGE\nCRYSTAL" : "NORMAL\nCRYSTAL";
+        crystalName.text = crystal.isLarge ? "LARGE\nCRYSTAL" : "SMALL\nCRYSTAL";
         crystalTotal.text = crystal.startingCrystalAmount + " C";
         crystalPerStage.text = crystal.crystalPerStage + " C";
         crystalMinePrice.text = crystal.minePrice + " C";

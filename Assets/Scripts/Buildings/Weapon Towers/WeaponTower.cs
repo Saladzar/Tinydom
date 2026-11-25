@@ -12,11 +12,9 @@ public class WeaponTower : Building
     protected Enemy targetEnemy;
     protected float attackCooldown;
 
-    void Start()
+    protected override void Init()
     {
-        Init();
-
-        buildingType = BuildingType.Balista;
+        base.Init();
 
         rangeIndicator.transform.localScale = new Vector3(range*2, 0.01f, range*2);
         rangeIndicator.SetActive(false);
@@ -96,4 +94,6 @@ public class WeaponTower : Building
     public int GetRange() { return range; }
 
     public float GetAttackSpeed() { return attackSpeed; }
+
+    public override string GetBuildingName() { return null; }
 }

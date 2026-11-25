@@ -1,16 +1,13 @@
 using UnityEngine;
 
-public class Catapult : MonoBehaviour
+public class Catapult : WeaponTower
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
+        Init();
         
+        buildingType = BuildingType.Catapult;
     }
 
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
+    public override string GetBuildingName() { return "CATAPULT"; }
 }

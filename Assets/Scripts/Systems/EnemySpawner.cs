@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 using UnityEngine;
@@ -34,8 +35,18 @@ public class EnemySpawner : MonoBehaviour
     private const int SKELETON_STAGE = 4;
     private const int GHOST_STAGE = 7;
     private const int VAMPIRE_STAGE = 10;
+    private const float MIN_SPAWN_DISTANCE = 0.5f;
+    private const float SPAWN_INTERVAL = 0.25f;
+    private static readonly Vector2[] SPAWN_OFFSETS =
+    {
+        new Vector2(-0.3f, -0.3f),
+        new Vector2(-0.3f, 0.3f),
+        new Vector2(0.3f, -0.3f),
+        new Vector2(0.3f, 0.3f)
+    };
 
     private GridManager grid;
+    private int pendingSpawns;
 
     void Awake()
     {
@@ -45,13 +56,19 @@ public class EnemySpawner : MonoBehaviour
         enemies = new List<Enemy>();
     }
 
-    void Start()
-    {
-        grid = GridManager.Instance;
-    }
-
     public void PrepareNextSpawn()
     {
+        if (grid == null)
+            grid = GridManager.Instance;
+
+        if (grid == null)
+            throw new InvalidOperationException("EnemySpawner requires a GridManager.");
+
+        spawnLocations.Clear();
+        enemiesToSpawn.Clear();
+        enemies.Clear();
+        pendingSpawns = 0;
+
         int numSpawnLocations;
 
         switch (stage)
@@ -77,7 +94,7 @@ public class EnemySpawner : MonoBehaviour
                 break;
 
             default:
-                numSpawnLocations = (int)Math.Min(maxSpawnLocations, Math.Ceiling((double)(stage / spawnIncreaseFrequency)));
+                numSpawnLocations = (int)Math.Min(maxSpawnLocations, Math.Ceiling((double)stage / spawnIncreaseFrequency));
 
                 int totalWeight = GetWaveWeight();
 
@@ -121,33 +138,110 @@ public class EnemySpawner : MonoBehaviour
                 break;
         }
 
+        HashSet<Vector2Int> chosenSpawnTiles = new HashSet<Vector2Int>();
         for (int i = 0; i < numSpawnLocations; i++)
         {
-            GridTile tile = grid.GetTile(grid.FindEmpty());
+            if (!grid.TryFindEmpty(chosenSpawnTiles, out Vector2Int gridPosition)) break;
+
+            GridTile tile = grid.GetTile(gridPosition);
             spawnLocations.Add(tile.worldPosition + Vector3.up * 0.5f);
+            chosenSpawnTiles.Add(gridPosition);
         }
     }
 
-    public void SpawnEnemies()
+    public bool SpawnEnemies()
     {
+        if (spawnLocations.Count == 0 || enemiesToSpawn.Count == 0)
+            return false;
+
+        List<Queue<EnemyType>> spawnQueues = new List<Queue<EnemyType>>(spawnLocations.Count);
+        for (int i = 0; i < spawnLocations.Count; i++)
+            spawnQueues.Add(new Queue<EnemyType>());
+
         foreach (var (type, num) in enemiesToSpawn)
         {
             for (int i = 0; i < num; i++)
             {
-                int location = RandomNumberGenerator.GetInt32(0, spawnLocations.Count);
+                int location = RandomNumberGenerator.GetInt32(0, spawnQueues.Count);
+                spawnQueues[location].Enqueue(type);
+                pendingSpawns++;
+            }
+        }
 
-                switch (type)
+        if (pendingSpawns == 0)
+            return false;
+
+        StartCoroutine(SpawnEnemiesOverTime(spawnQueues));
+        return true;
+    }
+
+    private IEnumerator SpawnEnemiesOverTime(List<Queue<EnemyType>> spawnQueues)
+    {
+        while (pendingSpawns > 0)
+        {
+            for (int i = 0; i < spawnQueues.Count; i++)
+            {
+                Queue<EnemyType> queue = spawnQueues[i];
+                if (queue.Count == 0) continue;
+
+                Vector3? spawnPosition = FindAvailableSpawnPosition(spawnLocations[i]);
+                if (!spawnPosition.HasValue) continue;
+
+                Enemy enemy = InstantiateEnemy(queue.Dequeue(), spawnPosition.Value);
+                enemies.Add(enemy);
+                pendingSpawns--;
+            }
+
+            if (pendingSpawns > 0)
+                yield return new WaitForSeconds(SPAWN_INTERVAL);
+        }
+    }
+
+    private Vector3? FindAvailableSpawnPosition(Vector3 location)
+    {
+        if (grid == null)
+            grid = GridManager.Instance;
+
+        float tileSize = grid.GetTileSize();
+        Vector2Int? tilePosition = grid.WorldToGridPosition(location);
+        if (!tilePosition.HasValue) return null;
+
+        foreach (Vector2 offset in SPAWN_OFFSETS)
+        {
+            Vector3 position = location + new Vector3(offset.x * tileSize, 0f, offset.y * tileSize);
+            Vector2Int? candidateTile = grid.WorldToGridPosition(position);
+            if (!candidateTile.HasValue || candidateTile.Value != tilePosition.Value) continue;
+
+            bool isOccupied = false;
+
+            foreach (Enemy enemy in enemies)
+            {
+                if (enemy == null) continue;
+
+                Vector3 separation = enemy.transform.position - position;
+                separation.y = 0f;
+                if (separation.sqrMagnitude < MIN_SPAWN_DISTANCE * MIN_SPAWN_DISTANCE)
                 {
-                    case EnemyType.Zombie: enemies.Add(Instantiate(zombiePrefab, spawnLocations[location], Quaternion.identity));
-                        break;
-                    case EnemyType.Skeleton: enemies.Add(Instantiate(skeletonPrefab, spawnLocations[location], Quaternion.identity));
-                        break;
-                    case EnemyType.Ghost: enemies.Add(Instantiate(ghostPrefab, spawnLocations[location], Quaternion.identity));
-                        break;
-                    case EnemyType.Vampire: enemies.Add(Instantiate(vampirePrefab, spawnLocations[location], Quaternion.identity));
-                        break;
+                    isOccupied = true;
+                    break;
                 }
             }
+
+            if (!isOccupied) return position;
+        }
+
+        return null;
+    }
+
+    private Enemy InstantiateEnemy(EnemyType type, Vector3 position)
+    {
+        switch (type)
+        {
+            case EnemyType.Zombie: return Instantiate(zombiePrefab, position, Quaternion.identity);
+            case EnemyType.Skeleton: return Instantiate(skeletonPrefab, position, Quaternion.identity);
+            case EnemyType.Ghost: return Instantiate(ghostPrefab, position, Quaternion.identity);
+            case EnemyType.Vampire: return Instantiate(vampirePrefab, position, Quaternion.identity);
+            default: throw new ArgumentOutOfRangeException(nameof(type), type, null);
         }
     }
 
@@ -159,11 +253,17 @@ public class EnemySpawner : MonoBehaviour
         return Mathf.RoundToInt(totalWeight);
     }
 
+    public void UpdatePathfindingForAllEnemies()
+    {
+        foreach (Enemy enemy in enemies)
+            enemy.Pathfind();
+    }
+
     public void RemoveEnemy(Enemy enemy)
     {
         if (enemies.Contains(enemy)) enemies.Remove(enemy);
 
-        if (enemies.Count == 0) GameState.Instance.ProgressStage();
+        if (enemies.Count == 0 && pendingSpawns == 0) GameState.Instance.ProgressStage();
     }
 }
 

@@ -67,7 +67,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54a564c27bfdcdc41afa235484cfa061, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HomeTower
-  health: 100
+  health: 2500
   price: 0
   upgradePrices: 000000000000000000000000
   debrisPrefab: {fileID: 7788266883463079141, guid: 14209adb905ef0c4489339355a568d85, type: 3}

@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-public class Building : MonoBehaviour
+public abstract class Building : MonoBehaviour
 {
     [SerializeField] protected int health = 100, price = 100;
     [SerializeField] protected int[] upgradePrices;
@@ -13,7 +13,7 @@ public class Building : MonoBehaviour
     public bool isDestroyed { get; private set; }
     protected GameObject debris;
 
-    protected void Init()
+    protected virtual void Init()
     {
         level = 1;
         currentHealth = health;
@@ -29,26 +29,41 @@ public class Building : MonoBehaviour
         if (currentHealth <= 0) HandleDestroyed();
     }
 
-    protected void HandleDestroyed() 
+    protected virtual void HandleDestroyed() 
     {
         isDestroyed = true;
         gameObject.SetActive(false);
+        GridManager.Instance.RemoveBuildingFromTile(this);
         debris = Instantiate(debrisPrefab, transform.position, Quaternion.identity);
+        Pathfinding.Instance.UpdatePathfinding();
+        EnemySpawner.Instance.UpdatePathfindingForAllEnemies();
     }
 
-    public void Repair()
+    public virtual void Repair()
     {
         isDestroyed = false;
         gameObject.SetActive(true);
         Destroy(debris);
         currentHealth = health;
+        GridManager.Instance.PlaceOnTile(gameObject);
+        Pathfinding.Instance.UpdatePathfinding();
+        EnemySpawner.Instance.UpdatePathfindingForAllEnemies();
     }
 
     public int GetPriceForNextUpgrade() { return upgradePrices[level]; }
 
     public BuildingType GetBuildingType() { return buildingType; }
 
-    public string GetBuildingName() { return null; }
+    public abstract string GetBuildingName();
+
+    public virtual void OnRemove()
+    {
+        GridManager.Instance.RemoveBuildingFromTile(this);
+        BuildingPlacement.Instance.RemoveBuilding(this);
+        Pathfinding.Instance.UpdatePathfinding();
+        EnemySpawner.Instance.UpdatePathfindingForAllEnemies();
+        Destroy(gameObject);
+    }
 }
 
 public enum BuildingType

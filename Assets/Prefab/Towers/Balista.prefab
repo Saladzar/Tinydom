@@ -78,14 +78,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1159851d9242b824aa008f19866b56d9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Balista
-  health: 100
-  price: 2
+  health: 250
+  price: 45
   upgradePrices: 000000000000000000000000
   debrisPrefab: {fileID: 7788266883463079141, guid: 14209adb905ef0c4489339355a568d85, type: 3}
-  damage: 2
-  range: 10
-  attackSpeed: 0
-  rotationSpeed: 0
+  damage: 35
+  range: 9
+  attackSpeed: 1.4
+  rotationSpeed: 3
   rangeIndicator: {fileID: 5032978792534585974}
   projectilePrefab: {fileID: 1425872016593165301, guid: 851019872ac11c246bfdc99c6ebffc9e, type: 3}
   projectileSpawn: {fileID: 7385560089137038447}

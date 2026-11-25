@@ -23,15 +23,35 @@ public class GameState : MonoBehaviour
     {
         homeTower = Instantiate(homeTowerPrefab, new Vector3(0, 0.5f, 0), Quaternion.identity).GetComponent<Building>();
         GridManager.Instance.PlaceOnTile(homeTower.gameObject);
+        CrystalManager.Instance.SpawnCrystals();
         EnemySpawner.Instance.PrepareNextSpawn();
+        inCombat = false;
+        SFXManager.Instance.PlayGameMusic();
+    }
+
+    public void BeginStage()
+    {
+        Pathfinding.Instance.UpdatePathfinding();
+        if (!EnemySpawner.Instance.SpawnEnemies())
+        {
+            SFXManager.Instance.PlayErrorSound();
+            return;
+        }
+
+        inCombat = true;
+        SFXManager.Instance.PlayCombatMusic();
     }
 
     public void ProgressStage()
     {
-        CrystalManager.Instance.EarnCrystals();
-        EnemySpawner.Instance.PrepareNextSpawn();
+        inCombat = false;
         stage++;
+        CrystalManager.Instance.EarnCrystals();
+        BuildingPlacement.Instance.RepairBuildings();
+        EnemySpawner.Instance.PrepareNextSpawn();
+        CrystalManager.Instance.SpawnCrystals();
         UpdateHUD();
+        SFXManager.Instance.PlayGameMusic();
     }
 
     public void AddCrystals(int amount)
@@ -55,6 +75,16 @@ public class GameState : MonoBehaviour
         stageDisplay.SetText(stage + "");
         crystalsDisplay.SetText(crystals + "");
     }
+
+    public void OnGameOver() 
+    {
+        SFXManager.Instance.PlayDeathMusic();
+        MenuManager.Instance.GameOver(); 
+    }
+
+    public int GetHighScore() { return PlayerPrefs.GetInt("HighScore", 0); }
+
+    public void SetHighScore(int highScore) { PlayerPrefs.SetInt("HighScore", highScore); }
 
     private void Init()
     {

@@ -8,16 +8,31 @@ public class MainMenu : MonoBehaviour
     void Start()
     {
         creditsScreen.SetActive(false);
+        SFXManager.Instance.PlayMainMenuMusic();
     }
 
-    public void OnPlay() { SceneManager.LoadScene("Game"); }
+    public void OnPlay()
+    {
+        SFXManager.Instance.PlayStartSound();
+        SceneManager.LoadScene("Game");
+    }
 
-    public void OnCredits() { creditsScreen.SetActive(true); }
+    public void OnCredits()
+    {
+        SFXManager.Instance.PlayEnterSound();
+        creditsScreen.SetActive(true);
+    } 
 
-    public void OnExitCredits() { creditsScreen.SetActive(false); }
+    public void OnExitCredits() 
+    {
+        SFXManager.Instance.PlayBackSound();
+        creditsScreen.SetActive(false);
+    }
 
     public void OnQuit()
     {
+        SFXManager.Instance.PlayBackSound();
+        
         #if UNITY_EDITOR
             UnityEditor.EditorApplication.ExitPlaymode();
         #else
